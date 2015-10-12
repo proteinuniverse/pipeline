@@ -1,0 +1,44 @@
+# maintaining a list of unique proteins in the NR.BLOCKS directory
+# can be done with a simple set of shell commands
+# 1. parse the md5s from the fasta files in NR.BLOCKS directory
+# 2. sort the md5s obtained from the parse
+# 3. verify the set of md5s are uniq
+# 4. if md5s are unique, save as new list of unique proteins
+
+inputs:
+	location of NR.BLOCKS directory
+	location of pre-existing list of uniq flex.md5s file
+	location of new list of unique flex.md5s file
+		(possibly unnecessary if pre-existing list is
+		 correct)
+
+# adding new proteins to the NR.BLOCKS directory
+# can be done using the flex.md5.pl script on the command line
+# flex.md5.pl infile.fa | cut -f1,3 | perl -lne 'my @a=split /\t/; die "$_" unless @a==2; print ">$a[0]\n$a[1]"' > infile.flex.md5.fa
+# 
+# 1. convert the protein fasta file deflines to contain only the
+#    flex.md5
+# 2. extract the sequence records for those sequence ids not found
+#    in the list of unique proteins in the NR.BLOCKS directory  
+#	extract_sequences_list -uv md5s.sorted < fasta.file
+# 3. remove duplicate sequence records leaving one.
+# 4. create chunks of size 100,000 protein records
+#	sequence_chunker -n 100000 <prefix> <suffix> < fasta.file
+# 5. create new list of unique proteins
+
+inputs:
+	location of protein fasta file to process
+	location of pre-existing list of uniq flex.md5s file
+	location of new list of unique flex.md5s file
+
+naming conventions:
+1) for the chunks in NR.BLOCKS
+	prefix.chunk.suffix
+	prefix describes where the data came from
+	chunk is automatically created by chunker.
+	suffix is .flex.md5.fa
+
+	
+
+
+

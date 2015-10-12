@@ -1,0 +1,15 @@
+This design covers the process of downloading a metagenome
+sample, assembling it, calling genes, and staging the resulting
+protein sequences in NR.BLOCKS.
+
+ASSUMPTIONS: 
+
+Download project from MG-RAST
+Assemble sample or project
+
+
+
+
+
+
+
