@@ -1,0 +1,76 @@
+#!/usr/bin/perl
+#
+# usage:  sequence_chunker [-n <chunksize>] <prefix> <suffix> < fasta_files\n";
+#
+#         (chunksize defaults to 100000)
+#
+use strict;
+our ( $opt_n );
+use Getopt::Std;
+
+my $usage = "usage: $0 [-n <n>] <prefix> <suffix>  < fasta_files\n";
+getopts( "n:" ) || die $usage;
+my $prefix = shift;
+my $suffix = shift;
+
+( $prefix && $suffix ) || die $usage;
+
+my $seqs_per_chunk = $opt_n ? $opt_n : 100000;
+
+my $n = 0;
+my @vec = (0,0,-1);
+print "new vec @vec ", alpha_vec( @vec ), " $n\n";
+
+my $outchunkname;
+
+while ( <> )
+   {
+    if ( /^>/ )
+       {
+        if ( $n++ % $seqs_per_chunk == 0 )
+          {
+           @vec = incr( @vec );
+           print "new vec @vec ", alpha_vec( @vec ), " $n\n";
+           close( OUT );
+           $outchunkname  = make_chunk_filename( @vec );
+           open( OUT, ">$outchunkname" ) || die "can't open $outchunkname for writing: $!\n";
+          }
+       }
+    print OUT;
+   }
+close( OUT );
+
+print "done.  $n sequences\n";
+
+sub  make_chunk_filename
+   {
+    my $name = $prefix . alpha_vec( @_ ) . $suffix;
+    print "filename @_ = $name\n";
+    return( $name );
+   }
+
+sub  incr
+   {
+    my @v = @_;
+    my $k = 2;
+    $v[$k]++;                           # incr last place
+    while ( $k >= 0 && $v[$k] >= 26 )   # do carries
+       {
+        $v[$k] = 0;
+        $v[--$k]++;
+       }
+    die "overflow @v\n" if ( $k < 0 && $v[0] == 0 );
+    return( @v );
+   }
+
+# convert a vector of base 26 to lowercase letters (0,0,0) -> "aaa", (25,25,25) -> "zzz"
+
+sub  alpha_vec
+   {
+    my @v = (97)x3;                 # 97 dec == 'a' 
+    foreach my $i ( 0..2 )
+       { $v[$i] += $_[$i]; }
+    return( pack( 'c'x3, @v ) );
+   }
+
+
