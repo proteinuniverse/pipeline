@@ -1,15 +1,15 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2013, Battelle Memorial Institute
+// Copyright ï¿½ 2013, Battelle Memorial Institute
 //
-// THIS FILE INITIALLY CREATED WITH:  
-//     TEMPLATE NAME:  lang_cpp_class.template 
-//     COMMAND NAME:   gensrc 
+// THIS FILE INITIALLY CREATED WITH:
+//     TEMPLATE NAME:  lang_cpp_class.template
+//     COMMAND NAME:   gensrc
 //
-// CODING CONVENTIONS: 
-//    * Class names are CamelCase with first word upper case 
-//    * Functions are camelCase with first word lower case 
-//    * Function parameters are lower case with _ and have a_ prefix 
-//    * Member variables always use 'this' pointer 
+// CODING CONVENTIONS:
+//    * Class names are CamelCase with first word upper case
+//    * Functions are camelCase with first word lower case
+//    * Function parameters are lower case with _ and have a_ prefix
+//    * Member variables always use 'this' pointer
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -59,7 +59,7 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
   filename(p_filename)
 {
   shared_ptr<istream> data;
-  if (p_filename.empty() || p_filename == "-") 
+  if (p_filename.empty() || p_filename == "-")
   {
     data.reset(&cin, noop());
   }
@@ -68,7 +68,11 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
     data.reset(new ifstream(p_filename.c_str()));
   }
   string    line;
-  string    cell;
+  // string    cell;
+
+  // can either group by qseqid or by qseqid:sseqid
+  // for speed efficiency, trying to group by only qseqid
+  string previous_qseqid;
 
   // for each blastout line, create a 'hits' file line (possibly combining multiple lines)
   while (getline(*data, line))
@@ -96,7 +100,7 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
     }
     if (!word.empty()) { sv.push_back(word); }
 
-
+    // define the current line
     hit_line tmp;
     istringstream os(sv[10]);
     os >> tmp.e_value;
@@ -119,7 +123,10 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
     tmp.q_hsps.push_back(q_hsp);
     tmp.s_hsps.push_back(s_hsp);
 
+    // rounds down to nearest int
     tmp.ids             = (u_int32_t)(((percent_ids / 100.0) * tmp.hsp_len) + 0.5);
+    // length - gapopen - pident
+    // could skip this calculation by including gaps rather than gapopen in blast command
     tmp.gaps            = tmp.hsp_len - tmp.mismatch - tmp.ids;
     tmp.key             = tmp.query + ':' + tmp.subject;
     tmp.q_aggregate_len = tmp.q_end - tmp.q_start + 1;
@@ -127,20 +134,35 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
     tmp.q_local_len     = tmp.q_end - tmp.q_start + 1;
     tmp.s_local_len     = tmp.s_end - tmp.s_start + 1;
 
-
-    map<string, hit_line>::iterator ftor = hit_lines.find(tmp.key);
-    map<string, hit_line>::iterator etor = hit_lines.end();
-      
-    // if we have already read a line for this query/subject pair, then merge the lines
-    if (ftor != etor)
+    if (tmp.query != previous_qseqid)
     {
-      merge((*ftor).second, tmp); 
+        // print hit_lines
+        cout << print();
+        // free up memory
+        hit_lines.clear();
+        // set previous to current
+        previous_qseqid = tmp.query;
+        // save current line
+        hit_lines.insert(pair<string, hit_line>(tmp.key, tmp));
+
     }
+    // same as previous; check to merge
     else
     {
-      hit_lines.insert(pair<string, hit_line>(tmp.key, tmp));  // save 
-     }
+        map<string, hit_line>::iterator ftor = hit_lines.find(tmp.key);
+        map<string, hit_line>::iterator etor = hit_lines.end();
 
+        // if we have already read a line for this query/subject pair, then merge the lines
+        if (ftor != etor)
+        {
+          merge((*ftor).second, tmp);
+        }
+        else
+        {
+          // save
+          hit_lines.insert(pair<string, hit_line>(tmp.key, tmp));
+        }
+    }
   }
 
   return;
@@ -151,11 +173,11 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
 // Public Functions
 // ======================================================================
 
-// each query/subject pair in the blastout file (there can be multiple lines for the same Q/S), can 
-// only be represented by one line in the hit file. 
+// each query/subject pair in the blastout file (there can be multiple lines for the same Q/S), can
+// only be represented by one line in the hit file.
 // when multiple Q/S lines are found - merge.
 // NOTE: this section was derived from inparanoid's blast output (pairwise or XML depending on the version)
-//       parser. Our goal was to reproduce the hit file exactly (except for the hsp columns at the end, 
+//       parser. Our goal was to reproduce the hit file exactly (except for the hsp columns at the end,
 //       which are never actually read)
 void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) throw()
 {
@@ -163,9 +185,9 @@ void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) thro
   hsp_type::const_iterator qetor = p_existing.q_hsps.end();
   hsp_type::const_iterator sitor = p_existing.s_hsps.begin();
   bool accept = true;
-  u_int32_t qleft  = 99999;
+  u_int32_t qleft  = 1000000000;
   u_int32_t qright = 0;
-  u_int32_t sleft  = 99999;
+  u_int32_t sleft  = 1000000000;
   u_int32_t sright = 0;
 
   // loop over the hsps for this query/subject
@@ -183,7 +205,6 @@ void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) thro
 
     u_int32_t q_start1, q_start2, s_start1, s_start2, q_end1, q_end2, s_end1, s_end2;
 
-    
     if (qs < p_tmp.q_start)
     {
       q_start1 = qs;
@@ -224,6 +245,7 @@ void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) thro
     if ((((double)q_start2 - (double)q_end1 - 1.0) / (double)q_length) < -0.05 ||
         (((double)s_start2 - (double)s_end1 - 1.0) / (double)s_length) < -0.05)
     {
+      // should better handle overlaps; output unclear
       accept = 0;
       break;
     }
@@ -279,6 +301,7 @@ void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) thro
   hsp_type  s_hsps;
 */
 // blast m8: queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
+// blast+: -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
 string ReportRipperStandalone::print(void) const throw()
 {
   stringstream ss;
@@ -293,8 +316,8 @@ string ReportRipperStandalone::print(void) const throw()
 
     hsp_type::const_iterator qitor = (*itor).second.q_hsps.begin();
     hsp_type::const_iterator qetor = (*itor).second.q_hsps.end();
-    int q_start = 99999999;
-    int q_end = 0;
+    int q_start = 1000000000;
+    long q_end = 0;
     for (qitor = qitor; qitor != qetor; ++qitor)
     {
       if ((*qitor).first < q_start) { q_start = (*qitor).first; }
@@ -304,7 +327,7 @@ string ReportRipperStandalone::print(void) const throw()
 
     hsp_type::const_iterator sitor = (*itor).second.s_hsps.begin();
     hsp_type::const_iterator setor = (*itor).second.s_hsps.end();
-    int s_start = 99999999;
+    int s_start = 1000000000;
     int s_end = 0;
     for (sitor = sitor; sitor != setor; ++sitor)
     {
@@ -326,8 +349,6 @@ string ReportRipperStandalone::print(void) const throw()
     ss << s_end << "\t" ;
     ss << resetiosflags(ios::fixed) << (*itor).second.e_value << "\t" ;
     ss << setiosflags(ios::fixed) << setprecision(1) << (*itor).second.score;
-  
-
     ss << "\n";
   }
   return(ss.str());
@@ -344,4 +365,3 @@ ostream & operator<<(ostream & p_os, ReportRipperStandalone const & p_ripper) th
 {
   return(p_os << p_ripper.print());
 }
-
