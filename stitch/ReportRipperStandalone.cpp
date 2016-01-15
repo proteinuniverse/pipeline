@@ -129,10 +129,6 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
     // could skip this calculation by including gaps rather than gapopen in blast command
     tmp.gaps            = tmp.hsp_len - tmp.mismatch - tmp.ids;
     tmp.key             = tmp.query + ':' + tmp.subject;
-    tmp.q_aggregate_len = tmp.q_end - tmp.q_start + 1;
-    tmp.s_aggregate_len = tmp.s_end - tmp.s_start + 1;
-    tmp.q_local_len     = tmp.q_end - tmp.q_start + 1;
-    tmp.s_local_len     = tmp.s_end - tmp.s_start + 1;
 
     if (tmp.query != previous_qseqid)
     {
@@ -181,100 +177,35 @@ ReportRipperStandalone::ReportRipperStandalone(string const & p_filename) throw(
 //       which are never actually read)
 void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) throw()
 {
-  hsp_type::const_iterator qitor = p_existing.q_hsps.begin();
-  hsp_type::const_iterator qetor = p_existing.q_hsps.end();
-  hsp_type::const_iterator sitor = p_existing.s_hsps.begin();
-  bool accept = true;
-  u_int32_t qleft  = 1000000000;
-  u_int32_t qright = 0;
-  u_int32_t sleft  = 1000000000;
-  u_int32_t sright = 0;
-
-  // loop over the hsps for this query/subject
-  for (qitor = qitor; qitor != qetor; ++qitor, ++sitor)
-  {
-    u_int32_t qs = (*qitor).first;
-    u_int32_t qe = (*qitor).second;
-    u_int32_t ss = (*sitor).first;
-    u_int32_t se = (*sitor).second;
-
-    if (qleft  > qs) qleft  = qs;
-    if (qright < qe) qright = qe;
-    if (sleft  > ss) sleft  = ss;
-    if (sright < se) sright = se;
-
-    u_int32_t q_start1, q_start2, s_start1, s_start2, q_end1, q_end2, s_end1, s_end2;
-
-    if (qs < p_tmp.q_start)
-    {
-      q_start1 = qs;
-      q_end1   = qe;
-      s_start1 = ss;
-      s_end1   = se;
-
-      q_start2 = p_tmp.q_start;
-      q_end2   = p_tmp.q_end;
-      s_start2 = p_tmp.s_start;
-      s_end2   = p_tmp.s_end;
-    }
-    else
-    {
-      q_start2 = qs;
-      q_end2   = qe;
-      s_start2 = ss;
-      s_end2   = se;
-
-      q_start1 = p_tmp.q_start;
-      q_end1   = p_tmp.q_end;
-      s_start1 = p_tmp.s_start;
-      s_end1   = p_tmp.s_end;
-    }
-
-
-    u_int32_t q_length1 = q_end1 - q_start1 + 1;
-    u_int32_t q_length2 = q_end2 - q_start2 + 1;
-    u_int32_t q_length = (q_length1 < q_length2) ? q_length1 : q_length2;
-
-    u_int32_t s_length1 = s_end1 - s_start1 + 1;
-    u_int32_t s_length2 = s_end2 - s_start2 + 1;
-    u_int32_t s_length = (s_length1 < s_length2) ? s_length1 : s_length2;
-
-
-    if (q_length == 0 || s_length == 0) continue;
-
-    if ((((double)q_start2 - (double)q_end1 - 1.0) / (double)q_length) < -0.05 ||
-        (((double)s_start2 - (double)s_end1 - 1.0) / (double)s_length) < -0.05)
-    {
-      // should better handle overlaps; output unclear
-      accept = 0;
-      break;
-    }
-  }
-
-  if (! accept) return;
-
   p_existing.merges++;
 
-  if (qleft  > p_tmp.q_start) qleft  = p_tmp.q_start;
-  if (qright < p_tmp.q_end)   qright = p_tmp.q_end;
-  if (sleft  > p_tmp.s_start) sleft  = p_tmp.s_start;
-  if (sright < p_tmp.s_end)   sright = p_tmp.s_end;
-
-  p_existing.hsp_len += p_tmp.hsp_len;
-  p_existing.score   += p_tmp.score;
-  p_existing.ids     += p_tmp.ids;
-  p_existing.gaps    += p_tmp.gaps;
+  double ratio = 1.0;
+  if (p_tmp.q_start < p_existing.q_end)
+  {
+    if (p_tmp.q_end <= p_existing.q_end)
+    {
+      //  NOTE:  Skip because it is fully contained in an existing HSP
+      return;
+    }
+    //  NOTE:  Overlap exists
+    p_existing.hsp_len  = p_tmp.q_end - p_existing.q_start;
+    //  NOTE:  We only want to add the part of the new HSP that does not overlap with the existing HSP
+    ratio               = (double)(p_tmp.hsp_len - (p_tmp.q_end - p_existing.q_end)) / p_tmp.hsp_len;
+  }
+  else
+  {
+    //  NOTE:  No hsp overlap
+    p_existing.hsp_len += p_tmp.hsp_len;
+  }
+  p_existing.ids      +=  p_tmp.ids       * ratio;
+  p_existing.score    +=  p_tmp.score     * ratio;
+  p_existing.gaps     +=  p_tmp.gaps      * ratio;
+  p_existing.mismatch +=  p_tmp.mismatch  * ratio;
 
   p_existing.q_hsps.push_back(pair<u_int32_t, u_int32_t>(p_tmp.q_start, p_tmp.q_end));
   p_existing.s_hsps.push_back(pair<u_int32_t, u_int32_t>(p_tmp.s_start, p_tmp.s_end));
 
-  p_existing.q_aggregate_len = qright - qleft + 1;
-  p_existing.s_aggregate_len = sright - sleft + 1;
-  p_existing.q_local_len += p_tmp.q_local_len;
-  p_existing.s_local_len += p_tmp.s_local_len;
-
   return;
-
 }
 
 
@@ -287,10 +218,7 @@ void ReportRipperStandalone::merge(hit_line & p_existing, hit_line & p_tmp) thro
   unsigned long int q_end;
   unsigned long int s_start;
   unsigned long int s_end;
-  unsigned long int q_aggregate_len;
-  unsigned long int s_aggregate_len;
-  unsigned long int q_local_len;
-  unsigned long int s_local_len;
+  unsigned long int hsp_len;
   unsigned long int merges;
   double    score;
   double    e_value;
@@ -339,8 +267,8 @@ string ReportRipperStandalone::print(void) const throw()
     string s = (*itor).second.subject;
 
     ss << q << "\t" << s << "\t";
-    ss << setiosflags(ios::fixed) << setprecision(2) << ( 100.0 * (double)(*itor).second.ids / (double)(*itor).second.q_local_len ) << "\t" ;
-    ss << (*itor).second.q_local_len << "\t";
+    ss << setiosflags(ios::fixed) << setprecision(2) << ( 100.0 * (double)(*itor).second.ids / (double)(*itor).second.hsp_len ) << "\t" ;
+    ss << (*itor).second.hsp_len << "\t";
     ss << (*itor).second.mismatch << "\t" ;
     ss << (*itor).second.gaps << "\t" ;
     ss << q_start << "\t" ;

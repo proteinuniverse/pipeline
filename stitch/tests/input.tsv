@@ -1,16 +1,12 @@
-# overlapping varying strands
-node1	target1	90	100	10	1	100	1	901	1000	5	10
-node1	target1	90	100	10	1	51	150	1050	951	5	10
-# overlapping same strand
-node2	target2	90	100	10	1	11	110	901	1000	5	10
-node2	target2	90	100	10	1	51	150	1051	1150	5	10
-# non-overlapping same strand
+# qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+# overlapping
+node1	target1	90	10	1	1	10	21	20	31	5	10
+node1	target1	90	10	1	1	15	26	25	36	5	10
+node1	target1	90	10	1	1	30	41	40	51	5	10
+# non-overlapping
 node3	target3	90	100	10	1	11	110	901	1000	5	10
 node3	target3	90	100	10	1	151	250	1101	1200	5	10
 # overlapping and non-overlapping
 node4	target4	90	100	10	1	1	100	901	1000	5	10
 node4	target4	90	100	10	1	51	150	951	1050	5	10
 node4	target4	90	100	10	1	151	250	1101	1200	5	10
-# non-overlapping varying strands
-node5	target5	90	100	10	1	100	1	901	1000	5	10
-node5	target5	90	100	10	1	201	300	1200	1101	5	10

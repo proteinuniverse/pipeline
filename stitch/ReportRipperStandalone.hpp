@@ -48,10 +48,6 @@ typedef struct hit_line
   unsigned long int q_end;
   unsigned long int s_start;
   unsigned long int s_end;
-  unsigned long int q_aggregate_len;
-  unsigned long int s_aggregate_len;
-  unsigned long int q_local_len;
-  unsigned long int s_local_len;
   unsigned long int merges;
   double    score;
   double    e_value;

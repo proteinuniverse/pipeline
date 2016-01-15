@@ -30,5 +30,5 @@ int main(int argc, char ** argv)
 
   ReportRipperStandalone rrs(file);
 
-  cout << rrs.print() << endl;
+  cout << rrs.print() << flush;
 }
